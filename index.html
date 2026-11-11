@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>環保小英雄大冒險 - 國小資源回收雙模式遊戲</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'eco-green': '#10B981',
+                        'eco-dark': '#047857',
+                        'eco-blue': '#0EA5E9',
+                        'eco-yellow': '#F59E0B',
+                        'eco-pink': '#EC4899',
+                        'eco-purple': '#8B5CF6'
+                    },
+                    fontFamily: {
+                        'maru': ['"Zen Maru Gothic"', 'sans-serif', 'cursive']
+                    },
+                    keyframes: {
+                        bounceSoft: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' }
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { transform: 'scale(1)', filter: 'drop-shadow(0 0 10px rgba(16,185,129,0.5))' },
+                            '50%': { transform: 'scale(1.05)', filter: 'drop-shadow(0 0 20px rgba(16,185,129,0.8))' }
+                        },
+                        popIn: {
+                            '0%': { transform: 'scale(0.8)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        }
+                    },
+                    animation: {
+                        'bounce-soft': 'bounceSoft 2s infinite ease-in-out',
+                        'pulse-glow': 'pulseGlow 2s infinite ease-in-out',
+                        'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', cursive, sans-serif;
+            background: linear-gradient(135deg, #E0F2FE 0%, #D1FAE5 50%, #FEF3C7 100%);
+            min-height: 100vh;
+            user-select: none;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(12px);
+            border: 4px solid #FFFFFF;
+            box-shadow: 0 20px 35px -10px rgba(16, 185, 129, 0.25), 0 10px 15px -5px rgba(0, 0, 0, 0.04);
+        }
+        .btn-pop {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+        }
+        .btn-pop:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.05);
+        }
+        .btn-pop:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.15) !important;
+        }
+        .btn-pop:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .bin-zone {
+            transition: all 0.2s ease;
+        }
+        .bin-zone:hover, .bin-zone.drag-over {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+        .floating-item {
+            cursor: grab;
+            transition: transform 0.1s ease;
+        }
+        .floating-item:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between min-h-screen text-slate-800 p-2 sm:p-4 relative">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Navigation / Header -->
+    <header class="max-w-4xl w-full mx-auto flex justify-between items-center bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-3xl shadow-md border-2 border-emerald-200 z-20">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="showScreen('mode-screen')">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center text-xl shadow-md animate-bounce-soft">
+                <i class="fa-solid fa-earth-asia"></i>
+            </div>
+            <div>
+                <h1 class="font-black text-base sm:text-lg text-emerald-900 leading-tight">環保小英雄大冒險</h1>
+                <p class="text-[11px] text-emerald-600 font-bold hidden sm:block">🌍 資源回收 x 極速遊戲雙玩法</p>
+            </div>
+        </div>
+
+        <!-- Global Indicators -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <div id="lives-container" class="bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-2xl flex items-center space-x-1 text-rose-500 text-sm font-black shadow-inner">
+                <i class="fa-solid fa-heart"></i>
+                <i class="fa-solid fa-heart"></i>
+                <i class="fa-solid fa-heart"></i>
+            </div>
+
+            <button id="sound-toggle" onclick="toggleSound()" title="聲音開關" class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition flex items-center justify-center text-base sm:text-lg font-bold shadow-sm">
+                <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+
+            <div class="bg-emerald-100 px-3.5 py-1.5 rounded-2xl text-emerald-800 font-black flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-star text-amber-400 text-base"></i>
+                <span id="global-score" class="text-base sm:text-lg">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-3xl w-full mx-auto my-auto py-3 z-10 flex-1 flex flex-col justify-center">
+
+        <!-- ================= MODE SELECTOR SCREEN ================= -->
+        <section id="mode-screen" class="glass-card rounded-3xl p-5 sm:p-8 text-center relative overflow-hidden animate-pop-in">
+            <div class="absolute -top-12 -left-12 w-40 h-40 bg-emerald-200/50 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-12 -right-12 w-40 h-40 bg-sky-200/50 rounded-full blur-2xl"></div>
+
+            <div class="w-28 h-28 mx-auto mb-3 animate-bounce-soft">
+                <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-xl">
+                    <circle cx="100" cy="100" r="75" fill="#0EA5E9"></circle>
+                    <path d="M 60 60 Q 80 40 100 55 Q 120 70 140 50 Q 155 80 130 110 Q 100 120 80 100 Z" fill="#10B981"></path>
+                    <path d="M 65 120 Q 90 140 110 130 Q 130 150 110 165 Q 80 160 60 140 Z" fill="#10B981"></path>
+                    <circle cx="80" cy="90" r="9" fill="#1E293B"></circle>
+                    <circle cx="120" cy="90" r="9" fill="#1E293B"></circle>
+                    <circle cx="83" cy="87" r="3" fill="#FFFFFF"></circle>
+                    <circle cx="123" cy="87" r="3" fill="#FFFFFF"></circle>
+                    <ellipse cx="70" cy="102" rx="8" ry="5" fill="#F43F5E" opacity="0.6"></ellipse>
+                    <ellipse cx="130" cy="102" rx="8" ry="5" fill="#F43F5E" opacity="0.6"></ellipse>
+                    <path d="M 85 108 Q 100 125 115 108" fill="none" stroke="#1E293B" stroke-width="5" stroke-linecap="round"></path>
+                    <path d="M 100 25 Q 115 5 130 20 Q 115 35 100 25 Z" fill="#22C55E"></path>
+                </svg>
+            </div>
+
+            <h2 class="text-2xl sm:text-4xl font-black text-emerald-900 mb-2 tracking-wide">
+                🌱 歡迎來到環保小英雄大冒險！
+            </h2>
+            <p class="text-slate-600 text-xs sm:text-sm mb-6 font-bold max-w-md mx-auto">
+                選擇你喜歡的挑戰模式，積攢綠色環保能量，解鎖榮譽獎盃吧！
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto mb-6">
+                <!-- Mode 1: Arcade Game -->
+                <div onclick="startArcadeGame()" class="btn-pop bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white rounded-3xl p-5 cursor-pointer text-left relative overflow-hidden border-b-4 border-orange-700">
+                    <div class="absolute -right-2 -bottom-2 text-7xl opacity-20"><i class="fa-solid fa-gamepad"></i></div>
+                    <span class="bg-white/30 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 inline-block">⚡ 極速動感</span>
+                    <h3 class="text-xl font-black mb-1"><i class="fa-solid fa-truck-ramp-box mr-1"></i> 極速垃圾分類戰</h3>
+                    <p class="text-xs text-amber-100 font-bold leading-relaxed">挑戰反應力！將快速出現的物品精準拖投或點擊分類至正確回收桶！</p>
+                </div>
+
+                <!-- Mode 2: Quiz Game -->
+                <div onclick="startQuizGame()" class="btn-pop bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-3xl p-5 cursor-pointer text-left relative overflow-hidden border-b-4 border-emerald-800">
+                    <div class="absolute -right-2 -bottom-2 text-7xl opacity-20"><i class="fa-solid fa-brain"></i></div>
+                    <span class="bg-white/30 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 inline-block">🧠 知識挑戰</span>
+                    <h3 class="text-xl font-black mb-1"><i class="fa-solid fa-clipboard-question mr-1"></i> 環保小知識問答</h3>
+                    <p class="text-xs text-emerald-100 font-bold leading-relaxed">答對 5 題即可通關！附帶 50:50 與博士提示等超強道具支援！</p>
+                </div>
+            </div>
+
+            <!-- Extra Buttons -->
+            <div class="flex flex-wrap justify-center gap-3">
+                <button onclick="openAiModal()" class="btn-pop px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs sm:text-sm rounded-2xl border-b-4 border-purple-700 flex items-center space-x-1.5 cursor-pointer">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>問問 AI 環保小博士</span>
+                </button>
+                <button onclick="showTrophies()" class="btn-pop px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm rounded-2xl border-b-4 border-sky-700 flex items-center space-x-1.5 cursor-pointer">
+                    <i class="fa-solid fa-trophy text-amber-300"></i>
+                    <span>成就大廳</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ================= ARCADE MINIGAME SCREEN ================= -->
+        <section id="arcade-screen" class="glass-card rounded-3xl p-4 sm:p-6 hidden relative">
+            
+            <!-- Arcade Header -->
+            <div class="flex justify-between items-center mb-3 bg-slate-100/80 p-3 rounded-2xl border border-slate-200">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-orange-500 text-white text-xs font-black px-3 py-1 rounded-xl shadow-sm">
+                        ⏱️ 剩餘時間：<span id="arcade-timer" class="text-sm">45</span> 秒
+                    </span>
+                    <span id="combo-badge" class="bg-purple-500 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm hidden animate-bounce">
+                        🔥 COMBO x<span id="combo-count">1</span>
+                    </span>
+                </div>
+                <div class="text-xs font-black text-emerald-800 bg-emerald-100 px-3 py-1 rounded-xl border border-emerald-300">
+                    🎯 已分類：<span id="arcade-sorted-count">0</span> 件
+                </div>
+            </div>
+
+            <!-- Current Item Playground -->
+            <div class="bg-gradient-to-b from-sky-100/90 to-emerald-50/90 rounded-2xl p-6 mb-4 text-center border-2 border-emerald-200 relative min-h-[180px] flex flex-col items-center justify-center shadow-inner overflow-hidden">
+                <p class="text-xs font-bold text-slate-500 mb-1">👇 請快速點擊或拖拽下列物品至對應回收桶：</p>
+                
+                <!-- Target Item Card -->
+                <div id="target-item-card" class="bg-white rounded-2xl p-4 shadow-lg border-2 border-amber-300 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing transition-transform duration-200 hover:scale-105 my-2">
+                    <span id="item-emoji" class="text-5xl sm:text-6xl mb-1 filter drop-shadow">🥤</span>
+                    <h4 id="item-name" class="font-black text-base sm:text-lg text-slate-800">透明寶特瓶</h4>
+                    <span id="item-desc" class="text-[11px] text-slate-500 font-bold">壓扁蓋緊，分類回收</span>
+                </div>
+
+                <div id="arcade-feedback" class="absolute inset-0 bg-emerald-500/90 backdrop-blur-sm text-white font-black text-2xl flex items-center justify-center rounded-2xl hidden z-20">
+                    <span id="arcade-feedback-text">正確！+100</span>
+                </div>
+            </div>
+
+            <!-- 4 Recycling Target Bins -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <!-- Bin 1: Recyclables -->
+                <div onclick="submitArcadeSort('recycle')" class="bin-zone btn-pop bg-blue-50 border-2 border-blue-400 hover:bg-blue-100 p-3 rounded-2xl text-center cursor-pointer flex flex-col items-center justify-between">
+                    <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center text-xl mb-1 shadow">
+                        <i class="fa-solid fa-recycle"></i>
+                    </div>
+                    <h5 class="font-black text-xs sm:text-sm text-blue-900">資源回收</h5>
+                    <p class="text-[10px] text-blue-700 font-bold">寶特瓶/金屬罐/電池</p>
+                </div>
+
+                <!-- Bin 2: Paper & Containers -->
+                <div onclick="submitArcadeSort('paper')" class="bin-zone btn-pop bg-amber-50 border-2 border-amber-400 hover:bg-amber-100 p-3 rounded-2xl text-center cursor-pointer flex flex-col items-center justify-between">
+                    <div class="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center text-xl mb-1 shadow">
+                        <i class="fa-solid fa-box-archive"></i>
+                    </div>
+                    <h5 class="font-black text-xs sm:text-sm text-amber-900">紙類與紙容器</h5>
+                    <p class="text-[10px] text-amber-700 font-bold">舊報紙/便當紙盒</p>
+                </div>
+
+                <!-- Bin 3: Food Waste -->
+                <div onclick="submitArcadeSort('food')" class="bin-zone btn-pop bg-emerald-50 border-2 border-emerald-400 hover:bg-emerald-100 p-3 rounded-2xl text-center cursor-pointer flex flex-col items-center justify-between">
+                    <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl mb-1 shadow">
+                        <i class="fa-solid fa-apple-whole"></i>
+                    </div>
+                    <h5 class="font-black text-xs sm:text-sm text-emerald-900">廚餘回收</h5>
+                    <p class="text-[10px] text-emerald-700 font-bold">剩飯果皮/軟質菜葉</p>
+                </div>
+
+                <!-- Bin 4: General Trash & Gas Tanks -->
+                <div onclick="submitArcadeSort('trash')" class="bin-zone btn-pop bg-rose-50 border-2 border-rose-400 hover:bg-rose-100 p-3 rounded-2xl text-center cursor-pointer flex flex-col items-center justify-between">
+                    <div class="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center text-xl mb-1 shadow">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </div>
+                    <h5 class="font-black text-xs sm:text-sm text-rose-900">一般垃圾/專收</h5>
+                    <p class="text-[10px] text-rose-700 font-bold">大骨蛤蜊殼/瓦斯罐專收</p>
+                </div>
+            </div>
+
+            <!-- Quit Button -->
+            <button onclick="showScreen('mode-screen')" class="mt-4 text-xs font-bold text-slate-500 hover:text-slate-800 text-center w-full py-1">
+                <i class="fa-solid fa-circle-arrow-left mr-1"></i> 返回主選單
+            </button>
+        </section>
+
+        <!-- ================= QUIZ SCREEN ================= -->
+        <section id="quiz-screen" class="glass-card rounded-3xl p-4 sm:p-7 hidden relative">
+            
+            <!-- Question Progress & Lifelines Header -->
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                <div class="flex items-center space-x-2">
+                    <span id="question-badge" class="bg-emerald-100 text-emerald-800 text-xs sm:text-sm font-black px-3 py-1 rounded-full border border-emerald-300">
+                        第 1 / 10 題
+                    </span>
+                    <span id="category-badge" class="bg-sky-100 text-sky-800 text-xs sm:text-sm font-bold px-3 py-1 rounded-full border border-sky-300">
+                        分類知識
+                    </span>
+                </div>
+
+                <!-- Lifelines / Power-ups -->
+                <div class="flex items-center space-x-1.5">
+                    <button id="power-5050" onclick="usePowerup('5050')" title="50:50 刪除兩個錯誤選項" class="btn-pop bg-purple-100 hover:bg-purple-200 text-purple-800 px-2.5 py-1 rounded-xl text-xs font-black border border-purple-300 flex items-center space-x-1">
+                        <i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i>
+                        <span>50:50</span>
+                    </button>
+                    <button id="power-hint" onclick="usePowerup('hint')" title="獲得 AI 小博士提示" class="btn-pop bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 rounded-xl text-xs font-black border border-amber-300 flex items-center space-x-1">
+                        <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                        <span>提示</span>
+                    </button>
+                    <button onclick="speakQuestionText()" title="朗讀題目" class="btn-pop bg-teal-100 hover:bg-teal-200 text-teal-800 px-2.5 py-1 rounded-xl text-xs font-black border border-teal-300 flex items-center space-x-1">
+                        <i class="fa-solid fa-volume-high text-teal-600"></i>
+                        <span>朗讀</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Progress Bar -->
+            <div class="w-full bg-slate-200 rounded-full h-3 mb-4 overflow-hidden p-0.5 border border-slate-300">
+                <div id="progress-bar" class="bg-gradient-to-r from-emerald-400 to-sky-400 h-full rounded-full transition-all duration-300 w-1/10"></div>
+            </div>
+
+            <!-- Question Card & Interactive Mascot Speech Box -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center mb-4">
+                <div class="md:col-span-1 flex flex-col items-center justify-center">
+                    <div id="mascot-quiz-svg" class="w-20 h-20 sm:w-24 sm:h-24 transition-transform duration-300"></div>
+                </div>
+
+                <div class="md:col-span-3 bg-white p-4 rounded-2xl border-2 border-emerald-200 shadow-sm relative">
+                    <div class="hidden md:block absolute -left-3 top-8 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-emerald-200"></div>
+                    <h3 id="question-text" class="text-base sm:text-lg font-bold text-slate-800 leading-snug">
+                        題目載入中...
+                    </h3>
+                </div>
+            </div>
+
+            <!-- Options Container -->
+            <div id="options-container" class="grid grid-cols-1 gap-2.5 mb-4"></div>
+
+            <!-- Warning & Hint / Feedback Card -->
+            <div id="feedback-card" class="hidden rounded-2xl p-4 mb-3 border-2 transition-all">
+                <div class="flex items-start space-x-3">
+                    <div id="feedback-icon" class="text-2xl mt-0.5"></div>
+                    <div class="flex-1">
+                        <h4 id="feedback-title" class="font-extrabold text-sm sm:text-base mb-1"></h4>
+                        <p id="feedback-text" class="text-xs sm:text-sm font-medium leading-relaxed"></p>
+                    </div>
+                </div>
+                <button id="next-btn" onclick="nextQuestion()" class="btn-pop mt-3 w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm sm:text-base rounded-xl border-b-4 border-emerald-700 cursor-pointer text-center flex items-center justify-center space-x-2">
+                    <span>下一題</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Quit Button -->
+            <button onclick="showScreen('mode-screen')" class="text-xs font-bold text-slate-400 hover:text-slate-700 text-center w-full">
+                <i class="fa-solid fa-circle-arrow-left mr-1"></i> 放棄挑戰返回選單
+            </button>
+        </section>
+
+        <!-- ================= GAME OVER / RETRY SCREEN ================= -->
+        <section id="gameover-screen" class="glass-card rounded-3xl p-6 sm:p-10 text-center hidden animate-pop-in">
+            <div class="w-24 h-24 mx-auto mb-3 bg-rose-100 rounded-full flex items-center justify-center text-5xl text-rose-500 border-4 border-rose-300">
+                💔
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black text-rose-900 mb-2">再接再厲！冒險尚未結束！</h2>
+            <p class="text-slate-600 text-xs sm:text-sm font-bold mb-6">別灰心！多練習幾次，你的環保直覺一定會突飛猛進的！</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <button onclick="restartCurrentMode()" class="btn-pop px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm rounded-2xl border-b-4 border-rose-700 cursor-pointer">
+                    🔄 再試一次
+                </button>
+                <button onclick="showScreen('mode-screen')" class="btn-pop px-6 py-3 bg-slate-500 hover:bg-slate-600 text-white font-black text-sm rounded-2xl border-b-4 border-slate-700 cursor-pointer">
+                    🏠 主選單
+                </button>
+            </div>
+        </section>
+
+        <!-- ================= RESULT / TROPHY SCREEN ================= -->
+        <section id="result-screen" class="glass-card rounded-3xl p-6 sm:p-8 text-center hidden animate-pop-in">
+            
+            <div class="relative w-28 h-28 mx-auto mb-3">
+                <div id="result-badge-icon" class="w-full h-full rounded-full bg-amber-100 flex items-center justify-center text-5xl text-amber-600 border-4 border-amber-400 shadow-inner animate-pulse-glow">
+                    🥉
+                </div>
+            </div>
+
+            <h2 id="result-title" class="text-2xl sm:text-3xl font-black text-emerald-900 mb-1">
+                恭喜通關！獲得銅牌獎盃！
+            </h2>
+            <p id="result-subtitle" class="text-slate-600 text-xs sm:text-sm font-bold mb-5">表現非常優異！地球因為你的細心而更美麗！</p>
+
+            <!-- Score Stats -->
+            <div class="grid grid-cols-2 gap-3 max-w-xs mx-auto mb-6">
+                <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3">
+                    <p class="text-[11px] text-emerald-600 font-bold mb-0.5">本次得分</p>
+                    <p id="final-score" class="text-2xl font-black text-emerald-800">150</p>
+                </div>
+                <div class="bg-sky-50 border-2 border-sky-200 rounded-2xl p-3">
+                    <p class="text-[11px] text-sky-600 font-bold mb-0.5">達成率</p>
+                    <p id="correct-count" class="text-2xl font-black text-sky-800">5 / 10</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-center items-center gap-2.5">
+                <button onclick="restartCurrentMode()" class="btn-pop px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm rounded-xl border-b-4 border-emerald-700 cursor-pointer">
+                    🔄 再次挑戰
+                </button>
+                <button id="review-btn" onclick="toggleReviewModal()" class="btn-pop px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm rounded-xl border-b-4 border-sky-700 cursor-pointer">
+                    📖 錯題總複習
+                </button>
+                <button onclick="showScreen('mode-screen')" class="btn-pop px-5 py-2.5 bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs sm:text-sm rounded-xl border-b-4 border-slate-700 cursor-pointer">
+                    🏠 主選單
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Achievement Modal -->
+    <div id="trophy-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border-4 border-amber-300 overflow-hidden flex flex-col p-5 text-center">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-extrabold text-lg text-amber-900 flex items-center space-x-2">
+                    <i class="fa-solid fa-trophy text-amber-500"></i>
+                    <span>環保榮譽稱號大廳</span>
+                </h3>
+                <button onclick="closeTrophyModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+            </div>
+            
+            <div class="space-y-2.5 my-2 text-left">
+                <div class="p-3 rounded-2xl border-2 border-amber-200 bg-amber-50 flex items-center space-x-3">
+                    <span class="text-3xl">🥇</span>
+                    <div>
+                        <h4 class="font-black text-sm text-amber-900">綠色傳奇小英雄</h4>
+                        <p class="text-[11px] text-amber-700 font-bold">問答全對或極速分類得分突破 1000 分</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center space-x-3">
+                    <span class="text-3xl">🥈</span>
+                    <div>
+                        <h4 class="font-black text-sm text-slate-800">資收急先鋒</h4>
+                        <p class="text-[11px] text-slate-600 font-bold">完成 1 次極速分類戰或問答答對 7 題以上</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded-2xl border-2 border-emerald-200 bg-emerald-50 flex items-center space-x-3">
+                    <span class="text-3xl">🥉</span>
+                    <div>
+                        <h4 class="font-black text-sm text-emerald-900">環保小新星</h4>
+                        <p class="text-[11px] text-emerald-700 font-bold">成功完成任意一種遊戲模式</p>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeTrophyModal()" class="btn-pop mt-2 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl border-b-4 border-amber-700">
+                太棒了！繼續加油
+            </button>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="review-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border-4 border-emerald-200 overflow-hidden">
+            <div class="p-4 bg-emerald-500 text-white flex justify-between items-center">
+                <h3 class="font-extrabold text-base sm:text-lg flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>答題總複習與概念解析</span>
+                </h3>
+                <button onclick="toggleReviewModal()" class="text-white hover:bg-emerald-600 w-8 h-8 rounded-full flex items-center justify-center font-bold">✕</button>
+            </div>
+            <div id="review-list" class="p-4 overflow-y-auto space-y-3 flex-1"></div>
+        </div>
+    </div>
+
+    <!-- Gemini AI Assistant Modal -->
+    <div id="ai-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border-4 border-purple-200 overflow-hidden flex flex-col">
+            <div class="p-4 bg-purple-600 text-white flex justify-between items-center">
+                <h3 class="font-extrabold text-base sm:text-lg flex items-center space-x-2">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>AI 環保小博士小學堂</span>
+                </h3>
+                <button onclick="closeAiModal()" class="text-white hover:bg-purple-700 w-8 h-8 rounded-full flex items-center justify-center font-bold">✕</button>
+            </div>
+            <div class="p-4 space-y-3 flex-1 overflow-y-auto">
+                <p class="text-xs text-slate-500 font-bold">對生活中的分類有疑慮，或是想知道環保冷知識嗎？問問 AI 小博士吧！</p>
+                <div class="flex space-x-2">
+                    <input id="ai-input" type="text" placeholder="例如：珍珠奶茶的塑膠杯跟吸管怎麼處理？" class="flex-1 border-2 border-purple-200 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:border-purple-500">
+                    <button onclick="askGeminiAI()" id="ai-send-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold cursor-pointer">發問</button>
+                </div>
+                <div id="ai-response-box" class="bg-purple-50 border-2 border-purple-100 rounded-2xl p-3.5 text-xs sm:text-sm text-slate-700 min-h-[110px] flex items-center justify-center text-center">
+                    <span class="text-slate-400 font-bold">請輸入你的環保疑問，AI 小博士會為你親切解答喔！</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="max-w-4xl w-full mx-auto text-center text-[11px] text-slate-500 font-bold py-1 z-10">
+        💚 國小資源回收與環保小知識雙模式遊戲 | 愛護地球，從手做起 🌍
+    </footer>
+
+    <script>
+        // ================= GAME DATA =================
+        const quizData = [
+            {
+                id: 1,
+                category: "樹木與紙張",
+                question: "回收 1 公噸的廢紙，大約可以保護幾棵生長了 20 年的大樹免於被砍伐？",
+                options: ["5 棵", "10 棵", "20 棵", "50 棵"],
+                correct: 2,
+                hint: "保護的大樹數量，相當於我們學校一個小班級的人數喔！",
+                explanation: "做回收能幫大自然節省資源！回收1公噸廢紙，就能保護20棵生長了20年的大樹喔！"
+            },
+            {
+                id: 2,
+                category: "塑膠來源",
+                question: "日常生活常用的塑膠物品，主要源自於哪一種天然資源？",
+                options: ["石油", "樹木", "礦石", "海水"],
+                correct: 0,
+                hint: "這種天然資源是黑色的液體，常用來加在汽車跟機車裡！",
+                explanation: "塑膠主要來自於『石油』這類不可再生的天然資源，所以多做回收才能減少抽石油！"
+            },
+            {
+                id: 3,
+                category: "紙容器處置",
+                question: "整理紙容器（如便當盒、飲料紙杯）回收時，下列哪一個做法是「不正確」的？",
+                options: ["拔除吸管與塑膠膜", "倒空並簡易沖洗", "與一般廢報紙混在一起打包", "壓扁後再回收"],
+                correct: 2,
+                hint: "注意！便當盒內部有防水塗層，和一般沒有塗層的報紙是不一樣的材質喔！",
+                explanation: "便當盒等紙容器內部常有塑膠防水膜，必須『與一般廢報紙分開打包』才對喔！"
+            },
+            {
+                id: 4,
+                category: "安全回收",
+                question: "用完的卡式爐小型瓦斯罐或噴漆罐等高壓氣瓶，應該如何正確處置才安全？",
+                options: ["直接丟進一般垃圾桶", "混在金屬回收桶裡", "完全排空後單獨親手交給清潔隊", "直接拿膠帶纏起來"],
+                correct: 2,
+                hint: "高壓氣瓶如果裡面還有殘留氣體，直接丟進垃圾車壓擠會發生爆炸危險！",
+                explanation: "高壓氣瓶如果沒排空亂丟會引發爆炸危險！一定要『完全排空並單獨親手交給清潔隊』！"
+            },
+            {
+                id: 5,
+                category: "廚餘規定",
+                question: "倒廚餘前，除了把水分瀝乾之外，還必須遵守下列哪一項重要規定？",
+                options: ["加水稀釋", "不可連同塑膠袋一起丟入廚餘桶", "放進微波爐加熱", "加上蓋子鎖緊丟棄"],
+                correct: 1,
+                hint: "塑膠袋能不能被自然分解呢？塑膠袋絕對不能一起丟進廚餘桶喔！",
+                explanation: "塑膠袋不能分解！倒廚餘時記得把廚餘倒進桶內，塑膠袋要另外拿去丟或回收！"
+            },
+            {
+                id: 6,
+                category: "廚餘分類",
+                question: "下列哪一組物品「不屬於」廚餘，應該改丟一般垃圾？",
+                options: ["剩菜與剩飯", "水果皮與蔬菜葉", "豬大骨與蛤蜊殼", "茶葉渣與咖啡渣"],
+                correct: 2,
+                hint: "太硬的東西會打碎廚餘處理機，例如堅硬的骨頭或貝殼類！",
+                explanation: "豬大骨、蛤蜊殼、蟹殼、榴槤殼等硬質物品太堅硬，會損壞廚餘處理設備，請丟『一般垃圾』！"
+            },
+            {
+                id: 7,
+                category: "防疫環保",
+                question: "為防範非洲豬瘟擴散，特別提醒哪種物品「嚴禁」直接進入家戶廚餘系統？",
+                options: ["煮熟的豬肉", "未經烹煮的生豬肉或生內臟", "煮熟的青菜", "魚骨頭"],
+                correct: 1,
+                hint: "還沒經過高溫煮熟的生肉類，可能帶有危險的病毒！",
+                explanation: "生豬肉可能有病毒風險，『未經烹煮的生豬肉與生內臟』嚴禁丟入家戶廚餘桶！"
+            },
+            {
+                id: 8,
+                category: "創意改造",
+                question: "切開後半部的大牛奶罐非常適合再利用改造為什麼生活用品？",
+                options: ["雨傘架", "放置雜誌的收納書架", "小掃把", "鞋架"],
+                correct: 1,
+                hint: "大牛奶罐斜斜切開後，剛好可以平放好幾本故事書或作業本喔！",
+                explanation: "大牛奶罐質地堅硬，側邊斜切後非常適合放在書桌上做成『收納雜誌的書架』喔！"
+            },
+            {
+                id: 9,
+                category: "美化居家",
+                question: "洗淨乾燥後的玻璃瓶罐，在居家裝飾上被推薦做成下列哪一種創意物品？",
+                options: ["裝入 LED 燈串的小夜燈", "鏡子", "塑膠掛鉤", "時鐘"],
+                correct: 0,
+                hint: "玻璃透明透光的特性，裡面放進會發光的小燈泡會非常浪漫漂亮喔！",
+                explanation: "漂亮的玻璃瓶洗乾淨後，放入幾條軟線 LED 燈串，就能變成超級溫馨的居家小夜燈！"
+            },
+            {
+                id: 10,
+                category: "寶特瓶步驟",
+                question: "在清洗與壓扁塑膠容器（如寶特瓶）後，交給資收車前最後一個重要步驟是什麼？",
+                options: ["撕毀瓶身", "鎖上瓶蓋", "塗上顏料", "用熱水燙過"],
+                correct: 1,
+                hint: "如果壓扁寶特瓶後不把蓋子封住，空氣會重新跑進去喔！",
+                explanation: "壓扁寶特瓶後記得『鎖上瓶蓋』，這樣空氣就不會跑回去，能保持壓扁狀態節省空間！"
+            }
+        ];
+
+        // Arcade sorting items pool
+        const arcadeItems = [
+            { name: "透明寶特瓶", emoji: "🥤", type: "recycle", desc: "壓扁蓋緊，分類回收" },
+            { name: "舊廢報紙", emoji: "📰", type: "paper", desc: "平整疊放，歸類紙類" },
+            { name: "紙質便當盒", emoji: "🍱", type: "paper", desc: "清除殘渣，紙容器專收" },
+            { name: "新鮮香蕉皮", emoji: "🍌", type: "food", desc: "瀝乾水分，放入廚餘" },
+            { name: "吃剩魚骨頭", emoji: "🐟", type: "food", desc: "軟質廚餘，廚餘回收" },
+            { name: "堅硬豬大骨", emoji: "🍖", type: "trash", desc: "太硬易損設備，一般垃圾" },
+            { name: "蛤蜊硬貝殼", emoji: "🦪", type: "trash", desc: "堅硬難碎，一般垃圾" },
+            { name: "廢乾電池", emoji: "🔋", type: "recycle", desc: "含有重金屬，專收回收" },
+            { name: "瓦斯罐氣瓶", emoji: "罐", type: "trash", desc: "排空後親手交清潔隊/專收" },
+            { name: "乾淨玻璃瓶", emoji: "🍾", type: "recycle", desc: "洗淨乾淨，玻璃資收" }
+        ];
+
+        // Game state
+        let currentMode = 'mode'; // mode, quiz, arcade
+        let globalScore = 0;
+        let lives = 3;
+        let soundEnabled = true;
+
+        // Quiz State
+        let currentQuizIndex = 0;
+        let quizCorrectCount = 0;
+        let userQuizAnswers = [];
+        let usedPowerups = { '5050': false, 'hint': false };
+
+        // Arcade State
+        let arcadeTimer = 45;
+        let arcadeTimerInterval = null;
+        let arcadeSortedCount = 0;
+        let arcadeCombo = 0;
+        let currentArcadeItem = null;
+
+        // Web Audio Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                const now = audioCtx.currentTime;
+
+                if (type === 'correct') {
+                    // Ascending chord (C5, E5, G5, C6)
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.06);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.06 + 0.2);
+                        osc.start(now + idx * 0.06);
+                        osc.stop(now + idx * 0.06 + 0.2);
+                    });
+                } else if (type === 'wrong') {
+                    // Low buzz
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.setValueAtTime(110, now + 0.15);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'powerup') {
+                    // Magic sparkle pitch
+                    for(let i = 0; i < 6; i++) {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(600 + i * 200, now + i * 0.04);
+                        gain.gain.setValueAtTime(0.15, now + i * 0.04);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.04 + 0.15);
+                        osc.start(now + i * 0.04);
+                        osc.stop(now + i * 0.04 + 0.15);
+                    }
+                } else if (type === 'fanfare') {
+                    [392, 523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.3);
+                        osc.start(now + idx * 0.08);
+                        osc.stop(now + idx * 0.08 + 0.3);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio play prevented");
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-icon').className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+        }
+
+        function speakQuestionText() {
+            if ('speechSynthesis' in window) {
+                const q = quizData[currentQuizIndex];
+                const utterance = new SpeechSynthesisUtterance(q.question);
+                utterance.lang = 'zh-TW';
+                utterance.rate = 0.95;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function showScreen(screenId) {
+            document.getElementById('mode-screen').classList.add('hidden');
+            document.getElementById('arcade-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.add('hidden');
+
+            document.getElementById(screenId).classList.remove('hidden');
+
+            if (screenId !== 'arcade-screen' && arcadeTimerInterval) {
+                clearInterval(arcadeTimerInterval);
+            }
+        }
+
+        function updateHeaderUI() {
+            document.getElementById('global-score').innerText = globalScore;
+            const container = document.getElementById('lives-container');
+            let html = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < lives) {
+                    html += '<i class="fa-solid fa-heart text-rose-500"></i>';
+                } else {
+                    html += '<i class="fa-regular fa-heart text-slate-300"></i>';
+                }
+            }
+            container.innerHTML = html;
+        }
+
+        // ================= ARCADE MODE LOGIC =================
+        function startArcadeGame() {
+            currentMode = 'arcade';
+            lives = 3;
+            globalScore = 0;
+            arcadeSortedCount = 0;
+            arcadeCombo = 0;
+            arcadeTimer = 45;
+
+            updateHeaderUI();
+            document.getElementById('arcade-timer').innerText = arcadeTimer;
+            document.getElementById('arcade-sorted-count').innerText = '0';
+            document.getElementById('combo-badge').classList.add('hidden');
+
+            showScreen('arcade-screen');
+            nextArcadeItem();
+
+            if (arcadeTimerInterval) clearInterval(arcadeTimerInterval);
+            arcadeTimerInterval = setInterval(() => {
+                arcadeTimer--;
+                document.getElementById('arcade-timer').innerText = arcadeTimer;
+                if (arcadeTimer <= 0) {
+                    clearInterval(arcadeTimerInterval);
+                    finishArcadeGame();
+                }
+            }, 1000);
+        }
+
+        function nextArcadeItem() {
+            const randomIndex = Math.floor(Math.random() * arcadeItems.length);
+            currentArcadeItem = arcadeItems[randomIndex];
+
+            document.getElementById('item-emoji').innerText = currentArcadeItem.emoji;
+            document.getElementById('item-name').innerText = currentArcadeItem.name;
+            document.getElementById('item-desc').innerText = currentArcadeItem.desc;
+        }
+
+        function submitArcadeSort(targetBin) {
+            if (!currentArcadeItem) return;
+
+            const feedbackEl = document.getElementById('arcade-feedback');
+            const feedbackText = document.getElementById('arcade-feedback-text');
+
+            if (targetBin === currentArcadeItem.type) {
+                // Correct!
+                playSound('correct');
+                arcadeCombo++;
+                const comboBonus = arcadeCombo > 1 ? arcadeCombo * 20 : 0;
+                const earnedScore = 100 + comboBonus;
+                globalScore += earnedScore;
+                arcadeSortedCount++;
+
+                document.getElementById('global-score').innerText = globalScore;
+                document.getElementById('arcade-sorted-count').innerText = arcadeSortedCount;
+
+                if (arcadeCombo > 1) {
+                    document.getElementById('combo-count').innerText = arcadeCombo;
+                    document.getElementById('combo-badge').classList.remove('hidden');
+                }
+
+                feedbackEl.className = 'absolute inset-0 bg-emerald-500/90 backdrop-blur-sm text-white font-black text-2xl flex items-center justify-center rounded-2xl z-20 animate-pop-in';
+                feedbackText.innerText = `正確！+${earnedScore}`;
+            } else {
+                // Wrong!
+                playSound('wrong');
+                arcadeCombo = 0;
+                lives--;
+                updateHeaderUI();
+                document.getElementById('combo-badge').classList.add('hidden');
+
+                feedbackEl.className = 'absolute inset-0 bg-rose-500/90 backdrop-blur-sm text-white font-black text-xl flex items-center justify-center rounded-2xl z-20 animate-pop-in';
+                feedbackText.innerText = `答錯囉！應該是：${getCategoryName(currentArcadeItem.type)}`;
+
+                if (lives <= 0) {
+                    clearInterval(arcadeTimerInterval);
+                    setTimeout(() => showScreen('gameover-screen'), 1200);
+                    return;
+                }
+            }
+
+            feedbackEl.classList.remove('hidden');
+            setTimeout(() => {
+                feedbackEl.classList.add('hidden');
+                nextArcadeItem();
+            }, 700);
+        }
+
+        function getCategoryName(type) {
+            switch(type) {
+                case 'recycle': return '資源回收';
+                case 'paper': return '紙類與紙容器';
+                case 'food': return '廚餘回收';
+                case 'trash': return '一般垃圾與專收';
+                default: return '正確類別';
+            }
+        }
+
+        function finishArcadeGame() {
+            playSound('fanfare');
+            showScreen('result-screen');
+            document.getElementById('review-btn').classList.add('hidden');
+            document.getElementById('final-score').innerText = globalScore;
+            document.getElementById('correct-count').innerText = `${arcadeSortedCount} 件`;
+
+            const badgeIcon = document.getElementById('result-badge-icon');
+            const resultTitle = document.getElementById('result-title');
+            const resultSubtitle = document.getElementById('result-subtitle');
+
+            if (globalScore >= 1000) {
+                badgeIcon.innerText = '🥇';
+                resultTitle.innerText = '極速分類大師！金牌解鎖！';
+                resultSubtitle.innerText = '你的手速與分類觀念簡直太神了！';
+                triggerConfetti();
+            } else if (globalScore >= 500) {
+                badgeIcon.innerText = '🥈';
+                resultTitle.innerText = '資收急先鋒！銀牌解鎖！';
+                resultSubtitle.innerText = '反應非常迅速！繼續挑戰突破紀錄吧！';
+                triggerConfetti();
+            } else {
+                badgeIcon.innerText = '🥉';
+                resultTitle.innerText = '順利通關！銅牌解鎖！';
+                resultSubtitle.innerText = '成功分類了好多資源，地球感謝你！';
+                triggerConfetti();
+            }
+        }
+
+        // ================= QUIZ MODE LOGIC =================
+        function startQuizGame() {
+            currentMode = 'quiz';
+            currentQuizIndex = 0;
+            globalScore = 100;
+            lives = 3;
+            quizCorrectCount = 0;
+            userQuizAnswers = [];
+            usedPowerups = { '5050': false, 'hint': false };
+
+            document.getElementById('power-5050').disabled = false;
+            document.getElementById('power-hint').disabled = false;
+            document.getElementById('review-btn').classList.remove('hidden');
+
+            updateHeaderUI();
+            showScreen('quiz-screen');
+            renderQuizQuestion();
+        }
+
+        function getMascotSVG(state = 'normal') {
+            let eyeSvg = `<circle cx="80" cy="90" r="9" fill="#1E293B"/><circle cx="120" cy="90" r="9" fill="#1E293B"/>`;
+            let mouthSvg = `<path d="M 85 108 Q 100 120 115 108" fill="none" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>`;
+
+            if (state === 'happy') {
+                eyeSvg = `<path d="M 72 90 Q 80 80 88 90" fill="none" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
+                          <path d="M 112 90 Q 120 80 128 90" fill="none" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>`;
+                mouthSvg = `<path d="M 80 105 Q 100 130 120 105 Z" fill="#F43F5E"/>`;
+            } else if (state === 'sad') {
+                eyeSvg = `<path d="M 72 82 L 88 92" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
+                          <path d="M 128 82 L 112 92" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>`;
+                mouthSvg = `<path d="M 85 118 Q 100 105 115 118" fill="none" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>`;
+            }
+
+            return `
+            <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md">
+                <circle cx="100" cy="100" r="75" fill="#3B82F6"/>
+                <path d="M 60 60 Q 80 40 100 55 Q 120 70 140 50 Q 155 80 130 110 Q 100 120 80 100 Z" fill="#10B981" />
+                <path d="M 65 120 Q 90 140 110 130 Q 130 150 110 165 Q 80 160 60 140 Z" fill="#10B981" />
+                ${eyeSvg}
+                <ellipse cx="70" cy="102" rx="8" ry="5" fill="#F43F5E" opacity="0.6"/>
+                <ellipse cx="130" cy="102" rx="8" ry="5" fill="#F43F5E" opacity="0.6"/>
+                ${mouthSvg}
+                <path d="M 100 25 Q 115 5 130 20 Q 115 35 100 25 Z" fill="#22C55E"/>
+            </svg>`;
+        }
+
+        function renderQuizQuestion() {
+            const q = quizData[currentQuizIndex];
+            
+            document.getElementById('question-badge').innerText = `第 ${currentQuizIndex + 1} / 10 題`;
+            document.getElementById('category-badge').innerText = q.category;
+            document.getElementById('question-text').innerText = q.question;
+            document.getElementById('progress-bar').style.width = `${((currentQuizIndex + 1) / 10) * 100}%`;
+            
+            document.getElementById('mascot-quiz-svg').innerHTML = getMascotSVG('normal');
+            document.getElementById('feedback-card').classList.add('hidden');
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            const prefixes = ['A', 'B', 'C', 'D'];
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `btn-pop w-full text-left p-3.5 rounded-2xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50 transition flex items-center space-x-3 cursor-pointer group`;
+                btn.onclick = () => selectQuizAnswer(idx);
+                btn.id = `opt-btn-${idx}`;
+                btn.innerHTML = `
+                    <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 font-black flex items-center justify-center border border-slate-300 group-hover:bg-emerald-500 group-hover:text-white transition text-sm">
+                        ${prefixes[idx]}
+                    </span>
+                    <span class="font-bold text-slate-800 text-sm sm:text-base flex-1">${opt}</span>
+                `;
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function usePowerup(type) {
+            if (usedPowerups[type]) return;
+            const q = quizData[currentQuizIndex];
+
+            if (type === '5050') {
+                playSound('powerup');
+                usedPowerups['5050'] = true;
+                document.getElementById('power-5050').disabled = true;
+
+                let disabledCount = 0;
+                q.options.forEach((_, idx) => {
+                    if (idx !== q.correct && disabledCount < 2) {
+                        const btn = document.getElementById(`opt-btn-${idx}`);
+                        if (btn) {
+                            btn.disabled = true;
+                            btn.classList.add('opacity-30', 'line-through');
+                        }
+                        disabledCount++;
+                    }
+                });
+            } else if (type === 'hint') {
+                playSound('powerup');
+                usedPowerups['hint'] = true;
+                document.getElementById('power-hint').disabled = true;
+
+                const feedbackCard = document.getElementById('feedback-card');
+                feedbackCard.className = 'rounded-2xl p-4 mb-3 border-2 border-amber-300 bg-amber-50 text-amber-900 block animate-pop-in';
+                document.getElementById('feedback-icon').innerHTML = '💡';
+                document.getElementById('feedback-title').innerText = 'AI 博士靈感提示：';
+                document.getElementById('feedback-text').innerText = q.hint;
+            }
+        }
+
+        function selectQuizAnswer(selectedIndex) {
+            const q = quizData[currentQuizIndex];
+            const isCorrect = (selectedIndex === q.correct);
+
+            userQuizAnswers.push({
+                question: q.question,
+                options: q.options,
+                selected: selectedIndex,
+                correct: q.correct,
+                explanation: q.explanation,
+                hint: q.hint,
+                isCorrect: isCorrect
+            });
+
+            // Disable option buttons
+            q.options.forEach((_, idx) => {
+                const btn = document.getElementById(`opt-btn-${idx}`);
+                btn.disabled = true;
+                btn.classList.remove('hover:border-emerald-400', 'hover:bg-emerald-50', 'cursor-pointer');
+                
+                if (idx === q.correct) {
+                    btn.className += ' border-emerald-500 bg-emerald-100 text-emerald-900';
+                } else if (idx === selectedIndex && !isCorrect) {
+                    btn.className += ' border-rose-500 bg-rose-100 text-rose-900';
+                }
+            });
+
+            const feedbackCard = document.getElementById('feedback-card');
+            const feedbackIcon = document.getElementById('feedback-icon');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackText = document.getElementById('feedback-text');
+
+            if (isCorrect) {
+                playSound('correct');
+                globalScore += 10;
+                quizCorrectCount++;
+                document.getElementById('global-score').innerText = globalScore;
+                document.getElementById('mascot-quiz-svg').innerHTML = getMascotSVG('happy');
+
+                feedbackCard.className = 'rounded-2xl p-4 mb-3 border-2 border-emerald-300 bg-emerald-50 text-emerald-900 block animate-pop-in';
+                feedbackIcon.innerHTML = '🎉';
+                feedbackTitle.innerText = 'Good! 答對囉！';
+                feedbackText.innerText = q.explanation;
+            } else {
+                playSound('wrong');
+                lives--;
+                updateHeaderUI();
+                document.getElementById('mascot-quiz-svg').innerHTML = getMascotSVG('sad');
+
+                feedbackCard.className = 'rounded-2xl p-4 mb-3 border-2 border-rose-400 bg-rose-50 text-rose-900 block animate-pop-in';
+                feedbackIcon.innerHTML = '⚠️';
+                feedbackTitle.innerText = '觀念修正提示：';
+                feedbackText.innerHTML = `<span class="font-extrabold text-rose-700 block mb-1">【提示】${q.hint}</span><span class="text-xs text-slate-600 block">【正確解答】${q.explanation}</span>`;
+            }
+
+            if (lives <= 0) {
+                document.getElementById('next-btn').innerText = "查看結果";
+            }
+        }
+
+        function nextQuestion() {
+            if (lives <= 0) {
+                showScreen('gameover-screen');
+                return;
+            }
+
+            currentQuizIndex++;
+            if (currentQuizIndex < quizData.length) {
+                renderQuizQuestion();
+            } else {
+                finishQuizGame();
+            }
+        }
+
+        function finishQuizGame() {
+            playSound('fanfare');
+            showScreen('result-screen');
+
+            document.getElementById('final-score').innerText = globalScore;
+            document.getElementById('correct-count').innerText = `${quizCorrectCount} / 10 題`;
+
+            const badgeIcon = document.getElementById('result-badge-icon');
+            const resultTitle = document.getElementById('result-title');
+            const resultSubtitle = document.getElementById('result-subtitle');
+
+            if (quizCorrectCount >= 9) {
+                badgeIcon.innerText = '🥇';
+                resultTitle.innerText = '解鎖金牌獎盃！問答大師！';
+                resultSubtitle.innerText = '太厲害了！你是超級頂級環保小英雄！';
+                triggerConfetti();
+            } else if (quizCorrectCount >= 7) {
+                badgeIcon.innerText = '🥈';
+                resultTitle.innerText = '解鎖銀牌獎盃！資收達人！';
+                resultSubtitle.innerText = '表現非常優秀！順利解鎖通關！';
+                triggerConfetti();
+            } else if (quizCorrectCount >= 5) {
+                badgeIcon.innerText = '🥉';
+                resultTitle.innerText = '解鎖銅牌獎盃！環保新星！';
+                resultSubtitle.innerText = '恭喜答對 5 題以上！成功通關！';
+                triggerConfetti();
+            } else {
+                badgeIcon.innerText = '🌱';
+                resultTitle.innerText = '再接再厲！解鎖失敗';
+                resultSubtitle.innerText = '需要答對至少 5 題才能解鎖獎盃喔！';
+            }
+
+            buildReviewList();
+        }
+
+        function buildReviewList() {
+            const listContainer = document.getElementById('review-list');
+            listContainer.innerHTML = '';
+
+            userQuizAnswers.forEach((ans, idx) => {
+                const item = document.createElement('div');
+                item.className = `p-3 rounded-2xl border-2 ${ans.isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`;
+                
+                item.innerHTML = `
+                    <div class="flex items-start justify-between mb-1">
+                        <span class="font-bold text-[11px] ${ans.isCorrect ? 'text-emerald-700 bg-emerald-100' : 'text-rose-700 bg-rose-100'} px-2 py-0.5 rounded-full">
+                            第 ${idx + 1} 題 - ${ans.isCorrect ? '答對 ✓' : '答錯 ✗'}
+                        </span>
+                    </div>
+                    <p class="font-bold text-slate-800 text-xs sm:text-sm mb-1">${ans.question}</p>
+                    <p class="text-xs text-slate-600">您的回答：<span class="font-bold ${ans.isCorrect ? 'text-emerald-700' : 'text-rose-600'}">${ans.options[ans.selected]}</span></p>
+                    ${!ans.isCorrect ? `<p class="text-xs text-emerald-700 font-bold">正確答案：${ans.options[ans.correct]}</p>` : ''}
+                    <div class="mt-1.5 text-xs bg-white/80 p-2 rounded-xl border border-slate-200 text-slate-700">
+                        💡 <strong>詳細解析：</strong>${ans.explanation}
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function restartCurrentMode() {
+            if (currentMode === 'arcade') {
+                startArcadeGame();
+            } else {
+                startQuizGame();
+            }
+        }
+
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6'];
+
+            for (let i = 0; i < 80; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vy: Math.random() * 3 + 2,
+                    vx: Math.random() * 2 - 1
+                });
+            }
+
+            function render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.y += p.vy;
+                    p.x += p.vx;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                if (particles.some(p => p.y < canvas.height)) {
+                    requestAnimationFrame(render);
+                }
+            }
+            render();
+        }
+
+        function toggleReviewModal() {
+            document.getElementById('review-modal').classList.toggle('hidden');
+        }
+
+        function showTrophies() {
+            document.getElementById('trophy-modal').classList.remove('hidden');
+        }
+
+        function closeTrophyModal() {
+            document.getElementById('trophy-modal').classList.add('hidden');
+        }
+
+        function openAiModal() {
+            document.getElementById('ai-modal').classList.remove('hidden');
+        }
+
+        function closeAiModal() {
+            document.getElementById('ai-modal').classList.add('hidden');
+        }
+
+        async function askGeminiAI() {
+            const inputEl = document.getElementById('ai-input');
+            const boxEl = document.getElementById('ai-response-box');
+            const sendBtn = document.getElementById('ai-send-btn');
+            const query = inputEl.value.trim();
+
+            if (!query) return;
+
+            sendBtn.disabled = true;
+            sendBtn.innerText = "思考中...";
+            boxEl.innerHTML = `<div class="flex items-center space-x-2 text-purple-600 font-bold"><i class="fa-solid fa-spinner animate-spin"></i><span>AI 小博士正在翻閱環保百科全書...</span></div>`;
+
+            try {
+                const systemPrompt = "你是一位親切、幽默且充滿童心的國小環保老師『AI 小博士』。請用 100 字以內繁體中文，親切易懂地為國小學生回答關於資源回收與環保的問題。可以使用可愛的表情符號。";
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: query }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "哇！這個問題太深奧了，小博士一時想不出來，我們一起問問老師吧！";
+
+                boxEl.innerHTML = `<div class="text-left leading-relaxed text-purple-950 font-bold">${replyText}</div>`;
+                inputEl.value = '';
+            } catch (err) {
+                boxEl.innerHTML = `<span class="text-rose-500 font-bold">網路小精靈迷路了，請稍後再試試看喔！</span>`;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerText = "發問";
+            }
+        }
+    </script>
+</body>
+</html>
